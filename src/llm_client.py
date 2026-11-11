@@ -9,19 +9,21 @@ from openai import OpenAI
 from src.config import ACTIVE_LLM_PROVIDER, LLM_LIMITS
 from src.rate_limiter import TokenBucketRateLimiter, execute_with_backoff
 
-_LIMITERS: Dict[str, TokenBucketRateLimiter] = {
-    provider: TokenBucketRateLimiter(
-        max_rpm=cfg["max_rpm"],
-        max_tpm=cfg["max_tpm"],
-        max_rpd=cfg["max_rpd"],
-    )
-    for provider, cfg in LLM_LIMITS.items()
-}
+@st.cache_resource
+def _get_limiters() -> Dict[str, TokenBucketRateLimiter]:
+    return {
+        provider: TokenBucketRateLimiter(
+            max_rpm=cfg["max_rpm"],
+            max_tpm=cfg["max_tpm"],
+            max_rpd=cfg["max_rpd"],
+        )
+        for provider, cfg in LLM_LIMITS.items()
+    }
 
 
 def get_quota_status(provider: str | None = None) -> Dict[str, int]:
     active = provider or ACTIVE_LLM_PROVIDER
-    return _LIMITERS[active].status()
+    return _get_limiters()[active].status()
 
 
 def _estimate_tokens(system_prompt: str, user_prompt: str) -> int:
@@ -78,7 +80,7 @@ def generate_analysis(
         raise ValueError(f"Unsupported LLM provider: {active}")
 
     model = LLM_LIMITS[active]["model"]
-    limiter = _LIMITERS[active]
+    limiter = _get_limiters()[active]
     est_tokens = _estimate_tokens(system_prompt, user_prompt)
     limiter.acquire(estimated_tokens=est_tokens)
 
