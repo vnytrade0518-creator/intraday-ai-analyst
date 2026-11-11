@@ -180,6 +180,7 @@ def start_live_stream(symbols: List[str]) -> None:
     st.session_state.last_status_msg = (
         f"LIVE STREAM ACTIVE for {', '.join(symbols)} (+ SPY/QQQ macro)."
     )
+    st.rerun()
 
 
 def stop_live_stream() -> None:
