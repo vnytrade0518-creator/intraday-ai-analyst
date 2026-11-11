@@ -304,20 +304,20 @@ st.caption(
 btn_col1, btn_col2, btn_col3, status_col = st.columns([1.4, 1.2, 1.0, 3.4])
 
 with btn_col1:
-    if st.button("🚀 RUN SESSION (Auto)", type="primary", use_container_width=True):
+    if st.button("🚀 RUN SESSION (Auto)", type="primary", width="stretch"):
         handle_run_session("AUTO")
 
 with btn_col2:
-    if st.button("🌅 Force Pre-Market", use_container_width=True):
+    if st.button("🌅 Force Pre-Market", width="stretch"):
         handle_run_session("PREMARKET")
 
 with btn_col3:
     if st.session_state.ws_running:
-        if st.button("🛑 Stop Stream", use_container_width=True):
+        if st.button("🛑 Stop Stream", width="stretch"):
             stop_live_stream()
             st.rerun()
     else:
-        if st.button("⚡ Force Live WS", use_container_width=True):
+        if st.button("⚡ Force Live WS", width="stretch"):
             handle_run_session("LIVE")
 
 with status_col:
@@ -411,7 +411,7 @@ with tab_pre:
         with st.expander("📊 Raw Screened Gap & Volume Table"):
             movers_df = pd.DataFrame(pm.get("screened_movers", []))
             if not movers_df.empty:
-                st.dataframe(movers_df, use_container_width=True)
+                st.dataframe(movers_df, width="stretch")
 
 
 @st.fragment(run_every=2)
@@ -455,7 +455,7 @@ def render_live_radar_fragment() -> None:
     rows = snapshot.get("tickers", [])
     if rows:
         df = pd.DataFrame(rows)
-        st.dataframe(df, use_container_width=True, hide_index=True)
+        st.dataframe(df, width="stretch", hide_index=True)
     else:
         st.caption("Waiting for first IEX trades/bars to arrive...")
 
