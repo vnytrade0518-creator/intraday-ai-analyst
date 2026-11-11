@@ -298,39 +298,23 @@ def evaluate_anomaly_with_llm(
     ticker = anomaly["ticker"]
     news = fetch_recent_news([ticker], hours_back=2)
 
-    system_prompt = (
-        "You are an elite intraday proprietary risk officer. An automated RVOL/ATR anomaly "
-        "just fired on a live market bar. Cross-check the price spike against breaking news "
-        "and SPY/QQQ macro direction. Enforce strict risk rules: max loss per trade is "
-        f"${MAX_RISK_PER_TRADE:.0f}, minimum reward-to-risk ratio is 1:{MIN_REWARD_TO_RISK:.1f} "
-        f"(+$100 target toward a ${DAILY_PROFIT_TARGET:.0f} daily profit goal). "
-        "Reject fakeouts or news-less spikes with 'NO-GO'. "
-        "Return ONLY valid JSON matching:
-"
-        "{
-"
-        '  "ticker": "SYMBOL",
-'
-        '  "verdict": "GO - LONG" | "GO - SHORT" | "NO-GO",
-'
-        '  "catalyst_quality": "High" | "Medium" | "Low (Fakeout Risk)",
-'
-        '  "entry_price": 0.0,
-'
-        '  "stop_loss": 0.0,
-'
-        '  "take_profit": 0.0,
-'
-        '  "suggested_shares": 0,
-'
-        '  "confidence": 1,
-'
-        '  "thesis": "2-sentence live execution rationale",
-'
-        '  "invalidation_rule": "Exact price level where trade is void"
-'
-        "}"
-    )
+    target_profit = MAX_RISK_PER_TRADE * MIN_REWARD_TO_RISK
+    system_prompt = f"""You are an elite intraday proprietary risk officer. Evaluate this live volume/price anomaly against real-time news catalysts. Enforce strict risk discipline: maximum risk per trade is ${MAX_RISK_PER_TRADE:.0f}, minimum reward-to-risk ratio is 1:{MIN_REWARD_TO_RISK:.1f} (target +${target_profit:.0f} toward a ${DAILY_PROFIT_TARGET:.0f} daily profit goal). Reject fake breakouts or empty news catalysts with 'NO-GO'.
+
+Return ONLY valid JSON matching this exact schema:
+{{
+  "ticker": "SYMBOL",
+  "verdict": "GO - LONG" | "GO - SHORT" | "NO-GO",
+  "catalyst_quality": "High (Earnings/Contract)" | "Medium" | "Low (Noise/Rumor)",
+  "entry_price": 0.0,
+  "stop_loss": 0.0,
+  "take_profit": 0.0,
+  "suggested_shares": 0,
+  "confidence": 1,
+  "thesis": "Concise 2-sentence intraday momentum + catalyst explanation",
+  "invalidation_rule": "Specific price or condition that voids the trade"
+}}"""
+
 
     user_prompt = (
         f"LIVE ANOMALY METRICS:
