@@ -47,7 +47,7 @@ ACTIVE_LLM_PROVIDER = "gemini"
 # Conservative Free-Tier Ceilings to Prevent 429 Errors
 LLM_LIMITS = {
     "gemini": {
-        "model": "gemini-2.5-flash",
+        "model": "gemini-3.8-flash",
         "max_rpm": 10,
         "max_tpm": 200_000,
         "max_rpd": 200,
