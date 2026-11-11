@@ -140,37 +140,33 @@ def analyze_premarket_with_llm(
     target_profit = MAX_RISK_PER_TRADE * MIN_REWARD_TO_RISK
     system_prompt = f"""You are an institutional intraday equity strategist. Analyze pre-market gap movers and overnight news catalysts. Enforce strict risk discipline: maximum risk per trade is ${MAX_RISK_PER_TRADE:.0f}, minimum reward-to-risk ratio is 1:{MIN_REWARD_TO_RISK:.1f} (target +${target_profit:.0f} per trade toward a ${DAILY_PROFIT_TARGET:.0f} daily profit goal). Reject weak rumors or low-quality gaps with verdict 'NO-GO'.
 
-Return ONLY valid JSON matching this exact schema:
-{{
-  "market_regime_summary": "1-2 sentence macro read from SPY/QQQ",
-  "trade_setups": [
+    Return ONLY valid JSON matching this exact schema:
     {{
-      "ticker": "SYMBOL",
-      "verdict": "GO - LONG" | "GO - SHORT" | "NO-GO",
-      "catalyst_quality": "High (Earnings/Contract)" | "Medium" | "Low (Noise/Rumor)",
-      "entry_price": 0.0,
-      "stop_loss": 0.0,
-      "take_profit": 0.0,
-      "suggested_shares": 0,
-      "confidence": 1,
-      "thesis": "Concise 2-sentence catalyst + technical explanation",
-      "invalidation_rule": "Specific price or condition that voids the trade"
-    }}
-  ]
-}}"""
+      "market_regime_summary": "1-2 sentence macro read from SPY/QQQ",
+      "trade_setups": [
+        {{
+          "ticker": "SYMBOL",
+          "verdict": "GO - LONG" | "GO - SHORT" | "NO-GO",
+          "catalyst_quality": "High (Earnings/Contract)" | "Medium" | "Low (Noise/Rumor)",
+          "entry_price": 0.0,
+          "stop_loss": 0.0,
+          "take_profit": 0.0,
+          "suggested_shares": 0,
+          "confidence": 1,
+          "thesis": "Concise 2-sentence catalyst + technical explanation",
+          "invalidation_rule": "Specific price or condition that voids the trade"
+        }}
+      ]
+    }}"""
 
-    user_prompt = (
-        f"MACRO BENCHMARKS (SPY & QQQ):
-{macro_context}
+    payload = {
+    "macro_context": macro_context,
+    "screened_movers": movers,
+    "overnight_news": news_by_symbol,
+    }
+    user_prompt = f"""Evaluate these pre-market movers and overnight news catalysts for today's opening session:
+    {json.dumps(payload, indent=2)}"""
 
-"
-        f"TOP SCREENED GAP MOVERS:
-{movers}
-
-"
-        f"OVERNIGHT NEWS HEADLINES BY TICKER:
-{news_by_symbol}"
-    )
 
     return generate_analysis(system_prompt=system_prompt, user_prompt=user_prompt, json_mode=True)
 
