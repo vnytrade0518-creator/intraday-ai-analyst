@@ -137,49 +137,27 @@ def analyze_premarket_with_llm(
     news_by_symbol: Dict[str, List[Dict[str, Any]]],
 ) -> Dict[str, Any]:
     """Synthesizes pre-market gaps + news into a structured 1:2 R:R game plan."""
-    system_prompt = (
-        "You are an institutional intraday equity strategist. Analyze pre-market gap movers "
-        "and overnight news catalysts. Enforce strict risk discipline: maximum risk per trade "
-        f"is ${MAX_RISK_PER_TRADE:.0f}, minimum reward-to-risk ratio is 1:{MIN_REWARD_TO_RISK:.1f} "
-        f"(target +${MAX_RISK_PER_TRADE * MIN_REWARD_TO_RISK:.0f} per trade toward a "
-        f"${DAILY_PROFIT_TARGET:.0f} daily profit goal). "
-        "Reject weak rumors or low-quality gaps with verdict 'NO-GO'. "
-        "Return ONLY valid JSON matching this exact schema:
-"
-        "{
-"
-        '  "market_regime_summary": "1-2 sentence macro read from SPY/QQQ",
-'
-        '  "trade_setups": [
-'
-        "    {
-"
-        '      "ticker": "SYMBOL",
-'
-        '      "verdict": "GO - LONG" | "GO - SHORT" | "NO-GO",
-'
-        '      "catalyst_quality": "High (Earnings/Contract)" | "Medium" | "Low (Noise/Rumor)",
-'
-        '      "entry_price": 0.0,
-'
-        '      "stop_loss": 0.0,
-'
-        '      "take_profit": 0.0,
-'
-        '      "suggested_shares": 0,
-'
-        '      "confidence": 1,
-'
-        '      "thesis": "Concise 2-sentence catalyst + technical explanation",
-'
-        '      "invalidation_rule": "Specific price or condition that voids the trade"
-'
-        "    }
-"
-        "  ]
-"
-        "}"
-    )
+    target_profit = MAX_RISK_PER_TRADE * MIN_REWARD_TO_RISK
+    system_prompt = f"""You are an institutional intraday equity strategist. Analyze pre-market gap movers and overnight news catalysts. Enforce strict risk discipline: maximum risk per trade is ${MAX_RISK_PER_TRADE:.0f}, minimum reward-to-risk ratio is 1:{MIN_REWARD_TO_RISK:.1f} (target +${target_profit:.0f} per trade toward a ${DAILY_PROFIT_TARGET:.0f} daily profit goal). Reject weak rumors or low-quality gaps with verdict 'NO-GO'.
+
+Return ONLY valid JSON matching this exact schema:
+{{
+  "market_regime_summary": "1-2 sentence macro read from SPY/QQQ",
+  "trade_setups": [
+    {{
+      "ticker": "SYMBOL",
+      "verdict": "GO - LONG" | "GO - SHORT" | "NO-GO",
+      "catalyst_quality": "High (Earnings/Contract)" | "Medium" | "Low (Noise/Rumor)",
+      "entry_price": 0.0,
+      "stop_loss": 0.0,
+      "take_profit": 0.0,
+      "suggested_shares": 0,
+      "confidence": 1,
+      "thesis": "Concise 2-sentence catalyst + technical explanation",
+      "invalidation_rule": "Specific price or condition that voids the trade"
+    }}
+  ]
+}}"""
 
     user_prompt = (
         f"MACRO BENCHMARKS (SPY & QQQ):
