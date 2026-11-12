@@ -77,14 +77,27 @@ def _extract_retry_after(exc: Exception) -> float | None:
 
 
 def _is_rate_limit_error(exc: Exception) -> bool:
-    status_code = getattr(exc, "status_code", None)
-    if status_code == 429:
-        return True
-    response = getattr(exc, "response", None)
-    if response is not None and getattr(response, "status_code", None) == 429:
+    status = getattr(exc, "status_code", None) or getattr(
+        getattr(exc, "response", None), "status_code", None
+    )
+    if status in (429, 502, 503, 504):
         return True
     msg = str(exc).lower()
-    return "429" in msg or "resource_exhausted" in msg or "rate limit" in msg
+    return any(
+        token in msg
+        for token in (
+            "429",
+            "502",
+            "503",
+            "504",
+            "rate limit",
+            "too many requests",
+            "resource_exhausted",
+            "deadline_exceeded",
+            "timeout",
+            "quota",
+        )
+    )
 
 
 def execute_with_backoff(
