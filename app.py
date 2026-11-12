@@ -33,38 +33,99 @@ from src.live_market import (
 )
 
 # ---------------------------------------------------------------------------
-# 1. Page Configuration & Custom Styling
+# 1. Page Configuration (Collapsed Sidebar for Instant Mobile View)
 # ---------------------------------------------------------------------------
 st.set_page_config(
-    page_title="Intraday AI Analyst | S&P & High-Beta Radar",
+    page_title="Intraday AI Analyst",
     page_icon="📡",
     layout="wide",
-    initial_sidebar_state="expanded",
+    initial_sidebar_state="collapsed",
 )
 
+# Responsive Mobile-First CSS
 st.markdown(
     """
     <style>
+    /* Reduce top padding so content fits above the fold on mobile */
+    .block-container {
+        padding-top: 1.2rem !important;
+        padding-bottom: 2rem !important;
+        padding-left: 1rem !important;
+        padding-right: 1rem !important;
+    }
+
+    /* Thumb-friendly touch targets for buttons */
+    div.stButton > button {
+        min-height: 48px !important;
+        font-weight: 600 !important;
+        font-size: 0.95rem !important;
+        border-radius: 8px !important;
+    }
+
+    /* Verdict Banner Cards */
     .verdict-go-long {
         background-color: #0d3b26;
         border-left: 5px solid #00e676;
-        padding: 14px 18px;
-        border-radius: 6px;
-        margin-bottom: 12px;
+        padding: 14px 16px;
+        border-radius: 8px;
+        margin-bottom: 10px;
+        line-height: 1.45;
     }
     .verdict-go-short {
         background-color: #3b1219;
         border-left: 5px solid #ff5252;
-        padding: 14px 18px;
-        border-radius: 6px;
-        margin-bottom: 12px;
+        padding: 14px 16px;
+        border-radius: 8px;
+        margin-bottom: 10px;
+        line-height: 1.45;
     }
     .verdict-nogo {
         background-color: #262930;
         border-left: 5px solid #90a4ae;
-        padding: 14px 18px;
-        border-radius: 6px;
-        margin-bottom: 12px;
+        padding: 14px 16px;
+        border-radius: 8px;
+        margin-bottom: 10px;
+        line-height: 1.45;
+    }
+
+    /* Auto-Wrapping Mobile Metric Grid (2 cols on phone, 5 cols on desktop) */
+    .trade-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(125px, 1fr));
+        gap: 8px;
+        margin-bottom: 10px;
+    }
+    .trade-tile {
+        background-color: #161a22;
+        border: 1px solid #2a303c;
+        border-radius: 8px;
+        padding: 10px 12px;
+    }
+    .trade-tile-label {
+        font-size: 0.72rem;
+        color: #9aa4b2;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        margin-bottom: 2px;
+    }
+    .trade-tile-value {
+        font-size: 1.15rem;
+        font-weight: 700;
+        color: #f8fafc;
+    }
+    .val-risk { color: #ff6b6b !important; }
+    .val-reward { color: #00e676 !important; }
+
+    /* Mobile Live Ticker Strip Cards */
+    .ticker-card-mobile {
+        background-color: #161a22;
+        border: 1px solid #2a303c;
+        border-radius: 8px;
+        padding: 10px 14px;
+        margin-bottom: 8px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
     }
     </style>
     """,
@@ -84,7 +145,7 @@ def init_session_state() -> None:
         "ws_stop_event": None,
         "ws_thread": None,
         "ws_running": False,
-        "last_status_msg": "Idle — Ready to run on your command.",
+        "last_status_msg": "Idle — Tap RUN SESSION to fetch latest data.",
         "last_error": None,
     }
     for key, val in defaults.items():
@@ -104,7 +165,6 @@ def get_chicago_now() -> datetime:
 
 
 def detect_market_phase(now_cst: datetime) -> str:
-    """Returns 'PREMARKET' if strictly before 8:30 AM CST, else 'LIVE'."""
     cutoff = now_cst.replace(
         hour=MARKET_OPEN_HOUR,
         minute=MARKET_OPEN_MINUTE,
@@ -115,7 +175,7 @@ def detect_market_phase(now_cst: datetime) -> str:
 
 
 # ---------------------------------------------------------------------------
-# 4. Background WebSocket Worker (Isolated from Streamlit Reruns)
+# 4. Background WebSocket Worker
 # ---------------------------------------------------------------------------
 def _ws_background_runner(
     symbols: List[str],
@@ -125,7 +185,6 @@ def _ws_background_runner(
 ) -> None:
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
-
     async_stop = asyncio.Event()
 
     async def _watch_stop() -> None:
@@ -158,7 +217,7 @@ def start_live_stream(symbols: List[str]) -> None:
     if st.session_state.ws_running:
         return
 
-    with st.spinner(f"Loading 20-day ATR & volume baselines for {', '.join(symbols)}..."):
+    with st.spinner(f"Loading 20d baselines for {', '.join(symbols)}..."):
         baselines = fetch_intraday_baselines(symbols)
 
     state = LiveMarketState(symbols=symbols, baselines=baselines)
@@ -178,9 +237,8 @@ def start_live_stream(symbols: List[str]) -> None:
     st.session_state.ws_thread = thread
     st.session_state.ws_running = True
     st.session_state.last_status_msg = (
-        f"LIVE STREAM ACTIVE for {', '.join(symbols)} (+ SPY/QQQ macro)."
+        f"LIVE STREAM ACTIVE: {', '.join(symbols)} (+ SPY/QQQ)"
     )
-    st.rerun()
 
 
 def stop_live_stream() -> None:
@@ -203,7 +261,7 @@ def handle_run_session(force_mode: str = "AUTO") -> None:
             if st.session_state.ws_running:
                 stop_live_stream()
 
-            with st.spinner("Scanning 28 watchlist tickers & auditing overnight news with LLM..."):
+            with st.spinner("Scanning 28 stocks & auditing overnight news with LLM..."):
                 result = run_premarket_pipeline()
 
             st.session_state.premarket_result = result
@@ -220,14 +278,15 @@ def handle_run_session(force_mode: str = "AUTO") -> None:
 
             st.session_state.active_symbols = chosen
             st.session_state.last_status_msg = (
-                f"Pre-Market Prep completed at {now_cst.strftime('%I:%M:%S %p CST')}. "
-                f"Active Core: {', '.join(chosen) if chosen else 'None'}."
+                f"Pre-Market updated ({now_cst.strftime('%I:%M %p CST')}) • "
+                f"Core: {', '.join(chosen) if chosen else 'None'}"
             )
+            st.rerun()
 
         else:
             symbols = st.session_state.active_symbols
             if not symbols:
-                with st.spinner("No pre-market list found — running 1-call snapshot screen..."):
+                with st.spinner("Screening top 5 active movers..."):
                     snaps = fetch_snapshots(WATCHLIST_28)
                     screened, _ = screen_premarket_movers(snaps)
                     symbols = [m["ticker"] for m in screened[:MAX_ACTIVE_TICKERS]]
@@ -235,7 +294,7 @@ def handle_run_session(force_mode: str = "AUTO") -> None:
 
             if not symbols:
                 st.session_state.last_error = (
-                    "Could not resolve active symbols from snapshot feed. Check Alpaca keys."
+                    "Could not resolve active symbols from snapshot feed."
                 )
                 return
 
@@ -249,7 +308,7 @@ def handle_run_session(force_mode: str = "AUTO") -> None:
 # 6. Sidebar: Risk Rules, Controls & Free-Tier Quota Telemetry
 # ---------------------------------------------------------------------------
 with st.sidebar:
-    st.title("⚙️ Control & Risk Desk")
+    st.title("⚙️ Risk & Quota Desk")
 
     now_cst = get_chicago_now()
     detected_phase = detect_market_phase(now_cst)
@@ -263,9 +322,9 @@ with st.sidebar:
     st.subheader("🎯 Daily Risk Guardrails")
     c1, c2 = st.columns(2)
     c1.metric("Daily Goal", f"${DAILY_PROFIT_TARGET:.0f}")
-    c2.metric("Max Daily Loss", f"-${MAX_DAILY_LOSS:.0f}")
+    c2.metric("Max Loss", f"-${MAX_DAILY_LOSS:.0f}")
     c3, c4 = st.columns(2)
-    c3.metric("Risk / Trade", f"${MAX_RISK_PER_TRADE:.0f}")
+    c3.metric("Risk/Trade", f"${MAX_RISK_PER_TRADE:.0f}")
     c4.metric("Min R:R", f"1 : {MIN_REWARD_TO_RISK:.1f}")
 
     st.divider()
@@ -290,19 +349,25 @@ with st.sidebar:
     )
 
     st.divider()
-    with st.expander("📋 View 28-Ticker Universe"):
+    with st.expander("📋 28-Ticker Universe"):
         st.write(", ".join(WATCHLIST_28))
 
 
 # ---------------------------------------------------------------------------
-# 7. Top Command Bar
+# 7. Compact Mobile-Friendly Header & Touch Command Bar
 # ---------------------------------------------------------------------------
-st.title("📡 Intraday AI Trading Analyst")
+now_header = get_chicago_now()
+auto_tag = detect_market_phase(now_header)
+quota_mini = get_quota_status()
+provider_mini = LLM_LIMITS[ACTIVE_LLM_PROVIDER]
+
+st.markdown("### 📡 Intraday AI Analyst")
 st.caption(
-    "On-Demand Decision Engine • Alpaca Free IEX Data + News • Rate-Limited LLM Analyst"
+    f"🕒 {now_header.strftime('%I:%M %p CST')} (`{auto_tag}`) • "
+    f"🛡️ Quota: `{quota_mini['rpd_used']}/{provider_mini['max_rpd']}` calls"
 )
 
-btn_col1, btn_col2, btn_col3, status_col = st.columns([1.4, 1.2, 1.0, 3.4])
+btn_col1, btn_col2, btn_col3 = st.columns([1.4, 1.1, 1.1])
 
 with btn_col1:
     if st.button("🚀 RUN SESSION (Auto)", type="primary", width="stretch"):
@@ -321,15 +386,14 @@ with btn_col3:
         if st.button("⚡ Force Live WS", width="stretch"):
             handle_run_session("LIVE")
 
-with status_col:
-    if st.session_state.last_error:
-        st.error(st.session_state.last_error)
-    else:
-        st.info(st.session_state.last_status_msg)
+if st.session_state.last_error:
+    st.error(st.session_state.last_error)
+else:
+    st.info(st.session_state.last_status_msg)
 
 
 # ---------------------------------------------------------------------------
-# 8. Helper Renderer for Trade Verdict Cards
+# 8. Mobile-Responsive Trade Verdict Card Renderer
 # ---------------------------------------------------------------------------
 def render_trade_card(setup: Dict[str, Any]) -> None:
     verdict = str(setup.get("verdict", "NO-GO")).upper()
@@ -348,60 +412,82 @@ def render_trade_card(setup: Dict[str, Any]) -> None:
         css_class = "verdict-nogo"
         badge = "⚪ NO-GO / AVOID"
 
+    entry = float(setup.get("entry_price", 0) or 0)
+    stop = float(setup.get("stop_loss", 0) or 0)
+    target = float(setup.get("take_profit", 0) or 0)
+    shares = int(setup.get("suggested_shares", 0) or 0)
+    conf = int(setup.get("confidence", 0) or 0)
+
     st.markdown(
         f"""
         <div class="{css_class}">
-            <strong>{ticker} — {badge}</strong> &nbsp;|&nbsp;
-            <span>Catalyst Quality: <b>{catalyst_q}</b></span><br/>
+            <strong>{ticker} — {badge}</strong><br/>
+            <small><b>Catalyst:</b> {catalyst_q}</small><br/>
             <small>{thesis}</small>
+        </div>
+        <div class="trade-grid">
+            <div class="trade-tile">
+                <div class="trade-tile-label">Entry</div>
+                <div class="trade-tile-value">${entry:.2f}</div>
+            </div>
+            <div class="trade-tile">
+                <div class="trade-tile-label">Stop (-$50)</div>
+                <div class="trade-tile-value val-risk">${stop:.2f}</div>
+            </div>
+            <div class="trade-tile">
+                <div class="trade-tile-label">Target (+$100)</div>
+                <div class="trade-tile-value val-reward">${target:.2f}</div>
+            </div>
+            <div class="trade-tile">
+                <div class="trade-tile-label">Size</div>
+                <div class="trade-tile-value">{shares} shs</div>
+            </div>
+            <div class="trade-tile">
+                <div class="trade-tile-label">Confidence</div>
+                <div class="trade-tile-value">{conf}/10</div>
+            </div>
         </div>
         """,
         unsafe_allow_html=True,
     )
-
-    m1, m2, m3, m4, m5 = st.columns(5)
-    m1.metric("Entry", f"${setup.get('entry_price', 0):.2f}")
-    m2.metric("Stop-Loss (-$50)", f"${setup.get('stop_loss', 0):.2f}")
-    m3.metric("Target (+$100)", f"${setup.get('take_profit', 0):.2f}")
-    m4.metric("Position Size", f"{setup.get('suggested_shares', 0)} shs")
-    m5.metric("Confidence", f"{setup.get('confidence', 0)}/10")
-    st.caption(f"**Invalidation Rule:** {invalidation}")
+    st.caption(f"**Invalidation:** {invalidation}")
     st.divider()
 
 
 # ---------------------------------------------------------------------------
 # 9. Main Workspace Tabs (Pre-Market Blueprint vs. Live Radar)
 # ---------------------------------------------------------------------------
-tab_pre, tab_live = st.tabs(["🌅 Pre-Market Game Plan", "⚡ Live Intraday Radar"])
+tab_pre, tab_live = st.tabs(["🌅 Pre-Market Plan", "⚡ Live Radar"])
 
+# --- TAB 1: PRE-MARKET PREP ---
 with tab_pre:
     pm = st.session_state.premarket_result
     if not pm:
         st.info(
-            "No pre-market report generated yet. Click **🚀 RUN SESSION** before 8:30 AM CST "
-            "(or click **🌅 Force Pre-Market**) to scan your 28 tickers."
+            "No pre-market report yet. Tap **🚀 RUN SESSION** before 8:30 AM CST "
+            "(or **🌅 Force Pre-Market**) to scan your watchlist."
         )
     else:
         macro = pm.get("macro_context", {})
         llm_out = pm.get("llm_analysis", {})
 
-        st.subheader("🌐 Macro Index Benchmarks")
-        mc1, mc2, mc3 = st.columns(3)
+        st.subheader("🌐 Macro Benchmarks")
+        mc1, mc2 = st.columns(2)
         spy_info = macro.get("SPY", {})
         qqq_info = macro.get("QQQ", {})
         mc1.metric(
-            "SPY Pre-Market",
+            "SPY",
             f"${spy_info.get('current_price', 0):.2f}",
             f"{spy_info.get('gap_pct', 0):+.2f}%",
         )
         mc2.metric(
-            "QQQ Pre-Market",
+            "QQQ",
             f"${qqq_info.get('current_price', 0):.2f}",
             f"{qqq_info.get('gap_pct', 0):+.2f}%",
         )
-        mc3.info(f"**Market Regime:** {llm_out.get('market_regime_summary', 'N/A')}")
+        st.info(f"**Market Regime:** {llm_out.get('market_regime_summary', 'N/A')}")
 
-        st.subheader("🎯 LLM Pre-Market Trade Blueprints")
+        st.subheader("🎯 LLM Trade Blueprints")
         setups = llm_out.get("trade_setups", [])
         if setups:
             for item in setups:
@@ -412,29 +498,30 @@ with tab_pre:
         with st.expander("📊 Raw Screened Gap & Volume Table"):
             movers_df = pd.DataFrame(pm.get("screened_movers", []))
             if not movers_df.empty:
-                st.dataframe(movers_df, width="stretch")
+                st.dataframe(movers_df, width="stretch", hide_index=True)
 
 
+# --- TAB 2: LIVE INTRADAY RADAR ---
 @st.fragment(run_every=2)
 def render_live_radar_fragment() -> None:
     state: LiveMarketState | None = st.session_state.live_state
 
     if not st.session_state.ws_running or state is None:
         st.info(
-            "Live WebSocket stream is currently **OFF**. Click **🚀 RUN SESSION** at or after "
-            "8:30 AM CST (or click **⚡ Force Live WS**) to start streaming real-time IEX ticks."
+            "Live stream is **OFF**. Tap **🚀 RUN SESSION** at or after 8:30 AM CST "
+            "(or **⚡ Force Live WS**) to start streaming."
         )
         if st.session_state.active_symbols:
             st.write(
-                f"**Queued Active Core Watchlist:** {', '.join(st.session_state.active_symbols)}"
+                f"**Queued Core:** {', '.join(st.session_state.active_symbols)}"
             )
         return
 
     snapshot = state.get_ui_snapshot()
     macro_live = snapshot.get("macro", {})
 
-    st.subheader("📡 Live IEX Stream & Anomaly Radar")
-    lm1, lm2, lm3 = st.columns(3)
+    st.subheader("📡 Live IEX Stream")
+    lm1, lm2 = st.columns(2)
     spy_l = macro_live.get("SPY", {})
     qqq_l = macro_live.get("QQQ", {})
     lm1.metric(
@@ -447,20 +534,35 @@ def render_live_radar_fragment() -> None:
         f"${qqq_l.get('price', 0):.2f}",
         f"{qqq_l.get('change_pct', 0):+.2f}%",
     )
-    lm3.metric(
-        "Stream Status",
-        "CONNECTED (IEX)",
-        f"Tracking {len(snapshot.get('tickers', []))} Core Symbols",
-    )
 
     rows = snapshot.get("tickers", [])
     if rows:
-        df = pd.DataFrame(rows)
-        st.dataframe(df, width="stretch", hide_index=True)
+        for r in rows:
+            chg = float(r.get("Session Chg %", 0) or 0)
+            chg_color = "#00e676" if chg > 0 else ("#ff6b6b" if chg < 0 else "#9aa4b2")
+            st.markdown(
+                f"""
+                <div class="ticker-card-mobile">
+                    <div>
+                        <strong style="font-size:1.05rem;">{r.get('Ticker')}</strong><br/>
+                        <small style="color:#9aa4b2;">RVOL: <b>{r.get('RVOL (1m)', 0)}x</b> • ATR: ${r.get('14d ATR', 0)}</small>
+                    </div>
+                    <div style="text-align:right;">
+                        <strong style="font-size:1.05rem;">${float(r.get('Last Price', 0)):.2f}</strong><br/>
+                        <small style="color:{chg_color}; font-weight:600;">{chg:+.2f}%</small>
+                    </div>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+
+        with st.expander("📋 Full Desktop Metrics Table"):
+            df = pd.DataFrame(rows)
+            st.dataframe(df, width="stretch", hide_index=True)
     else:
         st.caption("Waiting for first IEX trades/bars to arrive...")
 
-    st.subheader("🚨 Real-Time LLM Anomaly Alerts")
+    st.subheader("🚨 Real-Time LLM Alerts")
     alerts = st.session_state.live_alerts
     if not alerts:
         st.caption(
@@ -470,7 +572,7 @@ def render_live_radar_fragment() -> None:
         for alert in alerts:
             st.caption(
                 f"Triggered at **{alert.get('triggered_at', '')}** • "
-                f"Reason: `{alert.get('trigger_reason', '')}`"
+                f"`{alert.get('trigger_reason', '')}`"
             )
             render_trade_card(alert.get("decision", {}))
 
