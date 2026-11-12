@@ -52,7 +52,7 @@ def generate_analysis(
         api_key = st.secrets["llm"]["GEMINI_API_KEY"]
         client = genai.Client(
             api_key=api_key,
-            http_options={"timeout": 30_000},
+            http_options={"timeout": 60_000},
         )
         config_kwargs: Dict[str, Any] = {
             "system_instruction": system_prompt,
